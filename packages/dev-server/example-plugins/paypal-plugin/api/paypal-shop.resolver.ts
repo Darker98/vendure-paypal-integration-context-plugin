@@ -1,10 +1,9 @@
-import { Mutation, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import {
     ActiveOrderService,
     Allow,
     Ctx,
     Logger,
-    LogLevel,
     Permission,
     RequestContext,
     UserInputError,
@@ -20,6 +19,8 @@ import { getPayPalClient } from '../paypal-client';
 
 const loggerCtx = 'PayPalShopResolver';
 
+type PayPalOrderIntent = 'CAPTURE' | 'AUTHORIZE';
+
 interface CreatePayPalOrderResult {
     paypalOrderId: string;
     approvalUrl: string;
@@ -31,7 +32,10 @@ export class PayPalShopResolver {
 
     @Mutation()
     @Allow(Permission.Owner)
-    async createPayPalOrder(@Ctx() ctx: RequestContext): Promise<CreatePayPalOrderResult> {
+    async createPayPalOrder(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { intent?: PayPalOrderIntent },
+    ): Promise<CreatePayPalOrderResult> {
         const activeOrder = await this.activeOrderService.getActiveOrder(ctx, undefined);
 
         if (!activeOrder) {
@@ -41,6 +45,10 @@ export class PayPalShopResolver {
         if (activeOrder.totalWithTax === 0) {
             throw new UserInputError('Cannot create a PayPal order for a zero-value order.');
         }
+
+        const intent = args.intent ?? 'CAPTURE';
+        const paypalIntent =
+            intent === 'AUTHORIZE' ? CheckoutPaymentIntent.Authorize : CheckoutPaymentIntent.Capture;
 
         const currencyCode = activeOrder.currencyCode;
         // Vendure stores amounts in the smallest currency unit (e.g. cents). PayPal needs a decimal string.
@@ -56,7 +64,7 @@ export class PayPalShopResolver {
             const response = await controller.createOrder({
                 prefer: 'return=representation',
                 body: {
-                    intent: CheckoutPaymentIntent.Capture,
+                    intent: paypalIntent,
                     purchaseUnits: [
                         {
                             amount: { currencyCode, value },
@@ -76,21 +84,18 @@ export class PayPalShopResolver {
 
             if (!paypalOrderId || !approvalLink) {
                 Logger.error(
-                    `PayPal createOrder response missing id or approve link: ${JSON.stringify(response.result)}`,
+                    `PayPal createOrder missing id or approve link: ${JSON.stringify(response.result)}`,
                     loggerCtx,
                 );
                 throw new Error('PayPal did not return a valid order ID or approval URL.');
             }
 
             Logger.info(
-                `Created PayPal order ${paypalOrderId} for Vendure order ${activeOrder.code}`,
+                `Created PayPal ${intent} order ${paypalOrderId} for Vendure order ${activeOrder.code}`,
                 loggerCtx,
             );
 
-            return {
-                paypalOrderId,
-                approvalUrl: approvalLink.href,
-            };
+            return { paypalOrderId, approvalUrl: approvalLink.href };
         } catch (err) {
             if (err instanceof ApiError) {
                 const body = typeof err.body === 'string' ? err.body : JSON.stringify(err.body);
