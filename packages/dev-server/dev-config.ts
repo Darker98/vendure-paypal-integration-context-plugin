@@ -27,6 +27,7 @@ import { DataSourceOptions } from 'typeorm';
 import { NavModifierPlugin } from './test-plugins/nav-modifier-plugin/nav-modifier-plugin';
 // import { FieldTestPlugin } from './test-plugins/field-test/field-test-plugin';
 import { ReviewsPlugin } from './test-plugins/reviews/reviews-plugin';
+import { PayPalPlugin } from './example-plugins/paypal-plugin';
 
 const IS_INSTRUMENTED = process.env.IS_INSTRUMENTED === 'true';
 
@@ -115,6 +116,7 @@ export const devConfig: VendureConfig = {
         importAssetsDir: path.join(__dirname, 'import-assets'),
     },
     plugins: [
+        PayPalPlugin.init(),
         // MultivendorPlugin.init({
         //     platformFeePercent: 10,
         //     platformFeeSKU: 'FEE',
@@ -240,7 +242,7 @@ function getDbConfig(): DataSourceOptions {
                 synchronize: true,
                 type: 'mariadb',
                 host: '127.0.0.1',
-                port: 3306,
+                port: 3307,
                 username: 'vendure',
                 password: 'password',
                 database: 'vendure-dev',
