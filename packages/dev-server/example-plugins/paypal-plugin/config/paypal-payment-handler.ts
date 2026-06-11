@@ -225,15 +225,26 @@ export const paypalPaymentHandler = new PaymentMethodHandler({
             };
         }
 
+        // Full refund: empty body tells PayPal to reverse the entire captured amount.
+        // Partial refund: include the specific amount so PayPal refunds only that portion.
+        const isFullRefund = amount >= payment.amount;
+        const refundBody = isFullRefund
+            ? {}
+            : {
+                  amount: {
+                      currencyCode: order.currencyCode,
+                      value: (amount / 100).toFixed(2),
+                  },
+              };
+
         try {
             const client = getPayPalClient();
             const paymentsController = new PaymentsController(client);
 
-            // Empty body instructs PayPal to issue a full refund for the captured amount.
             const response = await paymentsController.refundCapturedPayment({
                 captureId,
                 prefer: 'return=representation',
-                body: {},
+                body: refundBody,
             });
 
             const refundId = response.result?.id;
@@ -248,7 +259,7 @@ export const paypalPaymentHandler = new PaymentMethodHandler({
             }
 
             Logger.info(
-                `PayPal full refund issued. Capture ID: ${captureId}, Refund ID: ${refundId}`,
+                `PayPal ${isFullRefund ? 'full' : 'partial'} refund issued. Capture ID: ${captureId}, Refund ID: ${refundId}, Amount: ${amount}`,
                 loggerCtx,
             );
 
@@ -258,6 +269,7 @@ export const paypalPaymentHandler = new PaymentMethodHandler({
                 metadata: {
                     captureId,
                     refundId,
+                    refundType: isFullRefund ? 'full' : 'partial',
                     refundStatus: response.result?.status ?? 'COMPLETED',
                 },
             };
