@@ -6,7 +6,9 @@ import { shopApiExtensions } from './api/shop-api-extensions';
 import { PayPalShopResolver } from './api/paypal-shop.resolver';
 import { PayPalSubscriptionAdminResolver } from './api/subscription-admin.resolver';
 import { PayPalSubscriptionShopResolver } from './api/subscription-shop.resolver';
+import { PayPalReportingResolver } from './api/reporting-admin.resolver';
 import { paypalPaymentHandler } from './config/paypal-payment-handler';
+import { PayPalReportingService } from './reporting/paypal-reporting.service';
 import { PAYPAL_PLUGIN_OPTIONS } from './constants';
 import { PayPalSubscription } from './subscription/paypal-subscription.entity';
 import { PayPalSubscriptionService } from './subscription/paypal-subscription.service';
@@ -34,7 +36,7 @@ import { PaypalPluginOptions } from './types';
     entities: [PayPalSubscription],
     adminApiExtensions: {
         schema: adminApiExtensions,
-        resolvers: [PayPalHealthResolver, PayPalSubscriptionAdminResolver],
+        resolvers: [PayPalHealthResolver, PayPalSubscriptionAdminResolver, PayPalReportingResolver],
     },
     shopApiExtensions: {
         schema: shopApiExtensions,
@@ -46,6 +48,7 @@ import { PaypalPluginOptions } from './types';
             useFactory: () => PayPalPlugin.options,
         },
         PayPalSubscriptionService,
+        PayPalReportingService,
     ],
     configuration: config => {
         config.paymentOptions.paymentMethodHandlers.push(paypalPaymentHandler);
