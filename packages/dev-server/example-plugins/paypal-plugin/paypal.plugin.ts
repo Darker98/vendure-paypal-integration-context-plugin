@@ -4,8 +4,12 @@ import { adminApiExtensions } from './api/api-extensions';
 import { PayPalHealthResolver } from './api/paypal-health.resolver';
 import { shopApiExtensions } from './api/shop-api-extensions';
 import { PayPalShopResolver } from './api/paypal-shop.resolver';
+import { PayPalSubscriptionAdminResolver } from './api/subscription-admin.resolver';
+import { PayPalSubscriptionShopResolver } from './api/subscription-shop.resolver';
 import { paypalPaymentHandler } from './config/paypal-payment-handler';
 import { PAYPAL_PLUGIN_OPTIONS } from './constants';
+import { PayPalSubscription } from './subscription/paypal-subscription.entity';
+import { PayPalSubscriptionService } from './subscription/paypal-subscription.service';
 import { PaypalPluginOptions } from './types';
 
 /**
@@ -27,19 +31,21 @@ import { PaypalPluginOptions } from './types';
  */
 @VendurePlugin({
     imports: [PluginCommonModule],
+    entities: [PayPalSubscription],
     adminApiExtensions: {
         schema: adminApiExtensions,
-        resolvers: [PayPalHealthResolver],
+        resolvers: [PayPalHealthResolver, PayPalSubscriptionAdminResolver],
     },
     shopApiExtensions: {
         schema: shopApiExtensions,
-        resolvers: [PayPalShopResolver],
+        resolvers: [PayPalShopResolver, PayPalSubscriptionShopResolver],
     },
     providers: [
         {
             provide: PAYPAL_PLUGIN_OPTIONS,
             useFactory: () => PayPalPlugin.options,
         },
+        PayPalSubscriptionService,
     ],
     configuration: config => {
         config.paymentOptions.paymentMethodHandlers.push(paypalPaymentHandler);
