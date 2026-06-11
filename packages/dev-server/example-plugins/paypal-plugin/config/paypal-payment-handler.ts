@@ -3,6 +3,7 @@ import {
     CancelPaymentErrorResult,
     CancelPaymentResult,
     CreatePaymentResult,
+    CreateRefundResult,
     LanguageCode,
     Logger,
     PaymentMethodHandler,
@@ -208,6 +209,74 @@ export const paypalPaymentHandler = new PaymentMethodHandler({
             const message = err instanceof Error ? err.message : String(err);
             Logger.error(`PayPal settlePayment unexpected error: ${message}`, loggerCtx);
             return { success: false, errorMessage: message };
+        }
+    },
+
+    createRefund: async (ctx, input, amount, order, payment, args): Promise<CreateRefundResult> => {
+        const captureId = payment.metadata?.captureId as string | undefined;
+
+        if (!captureId) {
+            const errorMessage =
+                'Cannot refund: no captureId found on payment. Only captured payments can be refunded.';
+            Logger.error(errorMessage, loggerCtx);
+            return {
+                state: 'Failed',
+                metadata: { errorMessage },
+            };
+        }
+
+        try {
+            const client = getPayPalClient();
+            const paymentsController = new PaymentsController(client);
+
+            // Empty body instructs PayPal to issue a full refund for the captured amount.
+            const response = await paymentsController.refundCapturedPayment({
+                captureId,
+                prefer: 'return=representation',
+                body: {},
+            });
+
+            const refundId = response.result?.id;
+
+            if (!refundId) {
+                const errorMessage = 'PayPal refund response did not include a refund ID.';
+                Logger.error(errorMessage, loggerCtx);
+                return {
+                    state: 'Failed',
+                    metadata: { captureId, errorMessage },
+                };
+            }
+
+            Logger.info(
+                `PayPal full refund issued. Capture ID: ${captureId}, Refund ID: ${refundId}`,
+                loggerCtx,
+            );
+
+            return {
+                state: 'Settled',
+                transactionId: refundId,
+                metadata: {
+                    captureId,
+                    refundId,
+                    refundStatus: response.result?.status ?? 'COMPLETED',
+                },
+            };
+        } catch (err) {
+            if (err instanceof ApiError) {
+                const body = typeof err.body === 'string' ? err.body : JSON.stringify(err.body);
+                const message = `PayPal refund failed (${err.statusCode}): ${body}`;
+                Logger.error(message, loggerCtx);
+                return {
+                    state: 'Failed',
+                    metadata: { captureId, errorMessage: message },
+                };
+            }
+            const message = err instanceof Error ? err.message : String(err);
+            Logger.error(`PayPal createRefund unexpected error: ${message}`, loggerCtx);
+            return {
+                state: 'Failed',
+                metadata: { captureId, errorMessage: message },
+            };
         }
     },
 });
