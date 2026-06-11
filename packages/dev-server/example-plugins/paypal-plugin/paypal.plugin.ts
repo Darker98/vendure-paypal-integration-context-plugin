@@ -8,6 +8,7 @@ import { PayPalSubscriptionAdminResolver } from './api/subscription-admin.resolv
 import { PayPalSubscriptionShopResolver } from './api/subscription-shop.resolver';
 import { PayPalReportingResolver } from './api/reporting-admin.resolver';
 import { paypalPaymentHandler } from './config/paypal-payment-handler';
+import { PayPalFulfillmentSubscriber } from './fulfillment/paypal-fulfillment-subscriber';
 import { PayPalReportingService } from './reporting/paypal-reporting.service';
 import { PAYPAL_PLUGIN_OPTIONS } from './constants';
 import { PayPalSubscription } from './subscription/paypal-subscription.entity';
@@ -49,6 +50,7 @@ import { PaypalPluginOptions } from './types';
         },
         PayPalSubscriptionService,
         PayPalReportingService,
+        PayPalFulfillmentSubscriber,
     ],
     configuration: config => {
         config.paymentOptions.paymentMethodHandlers.push(paypalPaymentHandler);
